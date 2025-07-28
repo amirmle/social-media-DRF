@@ -1,4 +1,5 @@
 from django.contrib.auth.models import User
+from .models import Follow
 from rest_framework import serializers
 
 
@@ -29,10 +30,32 @@ class UserCreateSerializer(serializers.ModelSerializer):
         return user
 
 class ProfileSerializer(serializers.ModelSerializer):
+    is_following = serializers.SerializerMethodField()
+    is_follower = serializers.SerializerMethodField()
+    is_me = serializers.SerializerMethodField()
     class Meta:
         model = User
         # fields = '__all__'
-        fields = ('username', 'first_name', 'last_name', 'email')
+        fields = ('username', 'first_name', 'last_name', 'email', 'is_following', 'is_follower', 'is_me')
+        read_only_fields = ('is_following', 'is_follower', 'is_me')
+
+    def get_is_me(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return request.user == obj
+        return False
+    def get_is_following(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated and request.user != obj :
+            return obj.following.filter(follower=request.user).exists()
+        return False
+
+    def get_is_follower(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated and request.user != obj :
+            return obj.follower.filter(following=request.user).exists()
+        return False
+
 
 class ResetPasswordSerializer(serializers.Serializer):
     old_password = serializers.CharField()
@@ -55,3 +78,18 @@ class ResetPasswordSerializer(serializers.Serializer):
         user.set_password(self.validated_data['new_password'])
         user.save()
         return user
+
+class FollowerSerializer(serializers.ModelSerializer):
+    follower = serializers.SlugRelatedField(slug_field='username', read_only=True)
+
+    class Meta:
+        model = Follow
+        fields = ('follower',)
+
+
+
+class FollowingSerializer(serializers.ModelSerializer):
+    following = serializers.SlugRelatedField(slug_field='username', read_only=True)
+    class Meta:
+        model = Follow
+        fields = ('following',)

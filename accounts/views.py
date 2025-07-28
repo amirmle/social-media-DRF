@@ -5,6 +5,8 @@ from rest_framework.response import Response
 from rest_framework.request import Request
 from rest_framework.views import APIView
 from rest_framework import status, mixins, generics, permissions
+
+from .models import Follow
 from .permissions import IsNotAuthenticated, IsOwnerOrReadOnly
 from post import serializers as post_serializers
 from . import serializers
@@ -29,25 +31,26 @@ class LogoutView(APIView):
 
 
 
-class ProfileView(APIView):
-    permission_classes = (permissions.IsAuthenticated,)
-    def get(self, request):
-        serializer = serializers.ProfileSerializer(request.user)
-        return Response(serializer.data, status=status.HTTP_200_OK)
-
-    def post(self, request):
-        serializer = serializers.ProfileSerializer(request.user, data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_202_ACCEPTED)
-        else :
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+# class ProfileView(APIView):
+#     permission_classes = (permissions.IsAuthenticated,)
+#     def get(self, request):
+#         serializer = serializers.ProfileSerializer(request.user)
+#         return Response(serializer.data, status=status.HTTP_200_OK)
+#
+#     def post(self, request):
+#         serializer = serializers.ProfileSerializer(request.user, data=request.data)
+#         if serializer.is_valid():
+#             serializer.save()
+#             return Response(serializer.data, status=status.HTTP_202_ACCEPTED)
+#         else :
+#             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 class ProfileView(generics.RetrieveUpdateAPIView):
     serializer_class = serializers.ProfileSerializer
     permission_classes = (permissions.IsAuthenticated,)
 
     def get_object(self):
         return self.request.user
+
 
 class ProfileDeleteView(APIView):
     permission_classes = (permissions.IsAuthenticated,)
@@ -87,7 +90,7 @@ class ProfilePostDetailView(generics.RetrieveUpdateDestroyAPIView):
 class ProfileOtherView(APIView):
     def get (self, request, username):
         user = get_object_or_404(User, username=username)
-        serializer = serializers.ProfileSerializer(user)
+        serializer = serializers.ProfileSerializer(user, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 class ProfileOtherPostListView(generics.ListAPIView):
@@ -95,3 +98,63 @@ class ProfileOtherPostListView(generics.ListAPIView):
     def get_queryset(self):
         user = get_object_or_404(User, username=self.kwargs['username'])
         return Post.objects.filter(user = user)
+
+
+class FollowersView(generics.ListAPIView):
+    serializer_class = serializers.FollowerSerializer
+
+    def get_queryset(self):
+        user = get_object_or_404(User, username=self.kwargs['username'])
+        return Follow.objects.filter(following=user)
+
+    def list(self, request, *args, **kwargs):
+        response = super().list(request, *args, **kwargs)
+        count = self.get_queryset().count()
+        return Response(
+            {
+                'followers_count': count,
+                'followers':response.data
+            }
+        )
+
+
+class FollowingView(generics.ListAPIView):
+    serializer_class = serializers.FollowingSerializer
+    def get_queryset(self):
+        user = get_object_or_404(User, username=self.kwargs['username'])
+        return Follow.objects.filter(follower=user)
+
+    def list(self, request, *args, **kwargs):
+        response = super().list(request, *args, **kwargs)
+        count = self.get_queryset().count()
+        return Response(
+            {
+                'following_count': count,
+                'following':response.data
+            }
+        )
+
+class FollowView(APIView):
+    permission_classes = (permissions.IsAuthenticated,)
+    def post(self, request, username):
+
+        following_instance = get_object_or_404(User, username=username)
+        if following_instance == request.user:
+            return Response({'detail': "You can't follow yourself!"}, status=status.HTTP_400_BAD_REQUEST)
+
+        follow, created = Follow.objects.get_or_create(follower=request.user, following=following_instance)
+        if created:
+            return Response({'detail':f'{following_instance} followed!'},status=status.HTTP_202_ACCEPTED)
+
+        else:
+            return Response({'detail':f'{following_instance} is already in following.'},status=status.HTTP_200_OK)
+
+    def delete(self, request, username):
+        following_instance = get_object_or_404(User, username=username)
+        deleted, _ = Follow.objects.filter(follower=request.user, following=following_instance).delete()
+        if deleted :
+            return Response({'detail':f'{following_instance} unfollowed!'}, status=status.HTTP_200_OK)
+        return Response({'detail':f'You were not following {following_instance}!'}, status=status.HTTP_404_NOT_FOUND)
+
+
+
