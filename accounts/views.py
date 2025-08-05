@@ -12,14 +12,17 @@ from post import serializers as post_serializers
 from . import serializers
 from post.models import Post
 
+from drf_spectacular.utils import extend_schema
 # Create your views here.
 
 
+@extend_schema(tags=['accounts - accounts'])
 class SignupView(generics.CreateAPIView):
     queryset = User.objects.all()
     serializer_class = serializers.UserCreateSerializer
     permission_classes = (IsNotAuthenticated,)
 
+@extend_schema(tags=['accounts - accounts'])
 class LogoutView(APIView):
     permission_classes = (permissions.IsAuthenticated,)
     def post(self, request):
@@ -44,20 +47,24 @@ class LogoutView(APIView):
 #             return Response(serializer.data, status=status.HTTP_202_ACCEPTED)
 #         else :
 #             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+@extend_schema(tags=['Profile - accounts'])
 class ProfileView(generics.RetrieveUpdateAPIView):
     serializer_class = serializers.ProfileSerializer
     permission_classes = (permissions.IsAuthenticated,)
-
     def get_object(self):
         return self.request.user
 
-
+@extend_schema(tags=['Profile - accounts'])
 class ProfileDeleteView(APIView):
     permission_classes = (permissions.IsAuthenticated,)
     def delete(self, request):
         request.user.delete()
         return Response({'detail':'User deleted.'}, status=status.HTTP_200_OK)
 
+
+
+@extend_schema(tags=['Profile - accounts'])
 class ChangePasswordView(APIView):
     permission_classes = (permissions.IsAuthenticated,)
     def patch(self, request):
@@ -67,17 +74,17 @@ class ChangePasswordView(APIView):
             return Response({'detail':'Password changed.'})
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+@extend_schema(tags=['Profile - accounts'])
 class ProfilePostListView(generics.ListCreateAPIView):
     serializer_class = post_serializers.PostSerializer
     permission_classes = [permissions.IsAuthenticated]
-
     def get_queryset(self):
         return Post.objects.filter(user=self.request.user)
-
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
 
 
+@extend_schema(tags=['Profile - accounts'])
 class ProfilePostDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = post_serializers.PostDetailSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -87,12 +94,16 @@ class ProfilePostDetailView(generics.RetrieveUpdateDestroyAPIView):
     def perform_update(self, serializer):
         serializer.save(user=self.request.user)
 
+
+@extend_schema(tags=['Profile others - accounts'])
 class ProfileOtherView(APIView):
     def get (self, request, username):
         user = get_object_or_404(User, username=username)
         serializer = serializers.ProfileSerializer(user, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+
+@extend_schema(tags=['Profile others - accounts'])
 class ProfileOtherPostListView(generics.ListAPIView):
     serializer_class = post_serializers.PostSerializer
     def get_queryset(self):
@@ -100,6 +111,8 @@ class ProfileOtherPostListView(generics.ListAPIView):
         return Post.objects.filter(user = user)
 
 
+
+@extend_schema(tags=['Follow - accounts'])
 class FollowersView(generics.ListAPIView):
     serializer_class = serializers.FollowerSerializer
 
@@ -117,7 +130,7 @@ class FollowersView(generics.ListAPIView):
             }
         )
 
-
+@extend_schema(tags=['Follow - accounts'])
 class FollowingView(generics.ListAPIView):
     serializer_class = serializers.FollowingSerializer
     def get_queryset(self):
@@ -134,6 +147,7 @@ class FollowingView(generics.ListAPIView):
             }
         )
 
+@extend_schema(tags=['Follow - accounts'])
 class FollowView(APIView):
     permission_classes = (permissions.IsAuthenticated,)
     def post(self, request, username):
