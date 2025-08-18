@@ -1,3 +1,4 @@
+from django.contrib.auth.models import User
 from django.shortcuts import render, get_object_or_404
 from drf_spectacular.types import OpenApiTypes
 from rest_framework.response import Response
@@ -340,3 +341,41 @@ class PostCommentDetailView(generics.RetrieveUpdateDestroyAPIView):
         return comments
 
 # endregion
+
+# region ProfilePostListView - all post of logged-in user - url is in accounts app urls
+@extend_schema(
+    tags=['Profile - post'],
+    description='All user posts',
+               )
+class ProfilePostListView(generics.ListCreateAPIView):
+    serializer_class = serializers.PostSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    def get_queryset(self):
+        return Post.objects.filter(user=self.request.user)
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+# endregion
+
+# region ProfilePostDetailView - logged-in users post (by url) - url is in accounts app urls
+@extend_schema(tags=['Profile - accounts'])
+class ProfilePostDetailView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = serializers.PostDetailSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    def get_queryset(self):
+        return Post.objects.filter(user=self.request.user)
+
+    def perform_update(self, serializer):
+        serializer.save(user=self.request.user)
+# endregion
+
+# region ProfileOtherPostListView - all posts of other users - (username in url) - url is in accounts app urls
+@extend_schema(tags=['Profile others - accounts'])
+class ProfileOtherPostListView(generics.ListAPIView):
+    serializer_class = serializers.PostSerializer
+    def get_queryset(self):
+        user = get_object_or_404(User, username=self.kwargs['username'])
+        return Post.objects.filter(user = user)
+# endregion
+
+
+

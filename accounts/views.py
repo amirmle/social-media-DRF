@@ -186,32 +186,6 @@ class ChangePasswordView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 # endregion
 
-# region ProfilePostListView - All logged in user posts
-@extend_schema(
-    tags=['Profile - accounts'],
-    description='All user posts',
-               )
-class ProfilePostListView(generics.ListCreateAPIView):
-    serializer_class = post_serializers.PostSerializer
-    permission_classes = [permissions.IsAuthenticated]
-    def get_queryset(self):
-        return Post.objects.filter(user=self.request.user)
-    def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
-# endregion
-
-# region ProfilePostDetailView - logged in users post (by url)
-@extend_schema(tags=['Profile - accounts'])
-class ProfilePostDetailView(generics.RetrieveUpdateDestroyAPIView):
-    serializer_class = post_serializers.PostDetailSerializer
-    permission_classes = [permissions.IsAuthenticated]
-    def get_queryset(self):
-        return Post.objects.filter(user=self.request.user)
-
-    def perform_update(self, serializer):
-        serializer.save(user=self.request.user)
-# endregion
-
 # region Others profile - (username in url)
 @extend_schema(tags=['Profile others - accounts'])
 class ProfileOtherView(APIView):
@@ -219,15 +193,6 @@ class ProfileOtherView(APIView):
         user = get_object_or_404(User, username=username)
         serializer = serializers.ProfileSerializer(user, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
-# endregion
-
-# region ProfileOtherPostListView - all posts of other users - (username in url)
-@extend_schema(tags=['Profile others - accounts'])
-class ProfileOtherPostListView(generics.ListAPIView):
-    serializer_class = post_serializers.PostSerializer
-    def get_queryset(self):
-        user = get_object_or_404(User, username=self.kwargs['username'])
-        return Post.objects.filter(user = user)
 # endregion
 
 # region list of followers of one user - (username in url)
