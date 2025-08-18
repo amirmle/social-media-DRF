@@ -2,37 +2,51 @@ from rest_framework import serializers
 
 from post.models import Post, Comment, Like
 
+
 class CommentSerializer(serializers.ModelSerializer):
     user = serializers.SlugRelatedField(slug_field='username', read_only=True)
     parent = serializers.PrimaryKeyRelatedField(queryset=Comment.objects.all(), required=False, allow_null=True)
+
     class Meta:
         model = Comment
-        fields = ('id','content', 'user', 'created','post', 'parent')
-        read_only_fields = ('id', 'user', 'created','post')
+        fields = ('id', 'content', 'user', 'created', 'post', 'parent')
+        read_only_fields = ('id', 'user', 'created', 'post')
+
     def validate_parent(self, value):
         request = self.context.get('request')
         post = self.context.get('post')
         if value and value.post_id != post.pk:
             raise serializers.ValidationError("Parent comment does not belong to this post.")
         return value
+
+
+def get_descendants(comment):
+    descendants = []
+    children = Comment.objects.filter(parent=comment)
+    for child in children:
+        descendants.append(child)
+        descendants.extend(get_descendants(child))
+    return descendants
+
 class CommentDetailSerializer(serializers.ModelSerializer):
     children = serializers.SerializerMethodField()
-    class Meta(CommentSerializer.Meta) :
+
+    class Meta(CommentSerializer.Meta):
         fields = CommentSerializer.Meta.fields + ('children',)
+
     def get_children(self, obj):
-        descendants = Comment.objects.filter(post=obj.post, parent__isnull=False).select_related('user', 'parent')
+        descendants = get_descendants(obj)
         return CommentSerializer(descendants, many=True).data
-
-
 
 
 class CommentFlatSerializer(serializers.ModelSerializer):
     user = serializers.SlugRelatedField(slug_field='username', read_only=True)
     parent = serializers.PrimaryKeyRelatedField(queryset=Comment.objects.all(), required=False, allow_null=True)
+
     class Meta:
         model = Comment
-        fields = ('id','content', 'user', 'created','post', 'parent')
-        read_only_fields = ('id', 'user', 'created','post')
+        fields = ('id', 'content', 'user', 'created', 'post', 'parent')
+        read_only_fields = ('id', 'user', 'created', 'post')
 
 
 class PostSerializer(serializers.ModelSerializer):
@@ -46,9 +60,17 @@ class PostSerializer(serializers.ModelSerializer):
 
     def get_detail_url(self, obj):
         request = self.context.get('request')
-        if request :
+        if request:
             return request.build_absolute_uri(obj.get_absolute_url())
         return obj.get_absolute_url()
+
+
+class PostCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Post
+        fields = ('title', 'user', 'content')
+        read_only_fields = ('user',)
+
 
 class PostDetailSerializer(PostSerializer):
     user = serializers.SlugRelatedField(slug_field='username', read_only=True)
@@ -60,8 +82,8 @@ class PostDetailSerializer(PostSerializer):
 
     class Meta:
         model = Post
-        fields = ('title', 'content', 'user' , 'created', 'comment_set', 'comment_count','is_liked', 'like_count')
-        read_only_fields = ('user',  'created')
+        fields = ('title', 'content', 'user', 'created', 'comment_set', 'comment_count', 'is_liked', 'like_count')
+        read_only_fields = ('user', 'created')
 
     def get_is_liked(self, obj):
         request = self.context.get('request')
@@ -70,4 +92,3 @@ class PostDetailSerializer(PostSerializer):
             # liked = Like.objects.filter(post=obj, user=request.user).exists()
             return liked
         return False
-
