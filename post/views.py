@@ -4,6 +4,8 @@ from drf_spectacular.types import OpenApiTypes
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import status, mixins, generics, permissions, filters
+
+from accounts.models import Follow
 from . import serializers
 from .models import Post, Like, Comment
 from accounts import permissions as my_permissions
@@ -377,5 +379,12 @@ class ProfileOtherPostListView(generics.ListAPIView):
         return Post.objects.filter(user = user)
 # endregion
 
+# region feed - filter post by whoever is in following
+class PostFeedView(generics.ListAPIView):
+    serializer_class = serializers.PostSerializer
+    def get_queryset(self):
+        following_users = Follow.objects.filter(follower=self.request.user).values_list('following', flat=True)
+        posts = Post.objects.filter(user__in = following_users).select_related('user').order_by('-created')
+        return posts
 
 
